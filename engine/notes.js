@@ -1,172 +1,261 @@
 // notes.js
 // Note creation and management
 
-const notes = [];
+import * as THREE from "/node_modules/three/build/three.module.js";
+import { VISUAL, NOTE_COLORS, KEY_POSITIONS } from "./constants.js";
+import { gameState } from "./gameState.js";
+import { sceneManager } from "./scene.js";
+import { uiManager } from "./ui.js";
+import { effectsManager } from "./effects.js";
+import { soundEffectsManager } from "./soundEffects.js";
+import { gameManager } from "./gameManager.js";
 
-// Create a new note
-function createNote(key, isLongNote = false) {
+class NoteManager {
+  constructor() {
+    this.notes = [];
+    this.noteColors = NOTE_COLORS;
+    this.keyPositions = KEY_POSITIONS;
+  }
+
+  // Clear all notes from the scene
+  clearAllNotes() {
+    this.notes.forEach((note) => {
+      sceneManager.getScrollingGroup().remove(note);
+    });
+    this.notes.length = 0;
+  }
+
+  // Create a new note
+  createNote(key, isLongNote = false) {
     const noteGroup = new THREE.Group();
-    
+    const color = this.noteColors[key];
+    const x = this.keyPositions[key];
+
+    // Create note visual
+    this.createNoteVisual(noteGroup, color);
+
+    // Set note properties
+    const startZ = -VISUAL.FRETBOARD_LENGTH / 2; // Start at the back of the fretboard
+    noteGroup.position.set(x, 0.28, startZ);
+    noteGroup.userData = {
+      key: key,
+      isLongNote: isLongNote,
+      isBeingHit: false,
+      wasHit: false, // Track if note was successfully hit
+      longNoteStartTime: isLongNote ? Date.now() : null,
+      longNoteDuration: isLongNote ? 1000 : 0, // 1 second for long notes
+    };
+
+    sceneManager.getScrollingGroup().add(noteGroup);
+    this.notes.push(noteGroup);
+
+    console.log(
+      `Created note for key ${key} at position (${x}, 0.28, ${startZ}), hit position: ${
+        VISUAL.HIT_POSITION
+      }, removal at: ${VISUAL.HIT_POSITION + VISUAL.FRETBOARD_LENGTH / 2}`
+    );
+  }
+
+  // Create note visual elements
+  createNoteVisual(noteGroup, color) {
+    // Colored border
     const coloredBorder = new THREE.Mesh(
-        new THREE.TorusGeometry(NOTE_RADIUS - 0.05, 0.1, 16, 100),
-        new THREE.MeshPhongMaterial({ color: noteColors[key], shininess: 100 })
+      new THREE.TorusGeometry(VISUAL.NOTE_RADIUS - 0.05, 0.1, 16, 100),
+      new THREE.MeshPhongMaterial({ color: color, shininess: 100 })
     );
     coloredBorder.rotation.x = Math.PI / 2;
     noteGroup.add(coloredBorder);
-    
+
+    // Black inner border
     const blackBorder = new THREE.Mesh(
-        new THREE.TorusGeometry(NOTE_RADIUS - 0.18, 0.03, 16, 100),
-        new THREE.MeshPhongMaterial({ color: 0x000000, shininess: 100 })
+      new THREE.TorusGeometry(VISUAL.NOTE_RADIUS - 0.18, 0.03, 16, 100),
+      new THREE.MeshPhongMaterial({ color: 0x000000, shininess: 100 })
     );
     blackBorder.rotation.x = Math.PI / 2;
     noteGroup.add(blackBorder);
-    
-    const whiteFill = new THREE.Mesh(
-        new THREE.CylinderGeometry(NOTE_RADIUS - 0.21, NOTE_RADIUS - 0.21, 0.05, 32),
-        new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 100 })
+
+    // White center
+    const whiteCenter = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        VISUAL.NOTE_RADIUS - 0.21,
+        VISUAL.NOTE_RADIUS - 0.21,
+        0.05,
+        32
+      ),
+      new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 100 })
     );
-    noteGroup.add(whiteFill);
+    noteGroup.add(whiteCenter);
+  }
 
-    noteGroup.position.set(keyPositions[key], 0.28, -FRETBOARD_LENGTH/2);
-    noteGroup.key = key;
-    noteGroup.isLongNote = isLongNote;
-    noteGroup.isMissed = false;
+  // Update notes positions and states
+  updateNotes(scrollSpeed) {
+    this.notes.forEach((note, index) => {
+      // Move note forward
+      note.position.z += scrollSpeed;
 
-    if (isLongNote) {
-        createLongNoteLine(noteGroup, key);
-    }
+      // Debug: Log when note enters hit zone
+      if (
+        Math.abs(note.position.z - VISUAL.HIT_POSITION) < 3 &&
+        !note.userData.hitZoneLogged
+      ) {
+        note.userData.hitZoneLogged = true;
+      }
 
-    scene.add(noteGroup);
-    notes.push(noteGroup);
-}
+      // Check if note passed hit zone without being hit
+      if (
+        note.position.z > VISUAL.HIT_POSITION + 2 &&
+        !note.userData.wasHit &&
+        !note.userData.missSoundPlayed
+      ) {
+        // Play miss sound immediately when note passes hit zone
+        soundEffectsManager.playNoteMiss();
 
-// Create a line for long notes
-function createLongNoteLine(noteGroup, key) {
-    const longNoteLength = Math.random() * 5 + 5;
-    
-    const lineGeometry = new THREE.BufferGeometry();
-    const lineWidth = 0.2;
-    const vertices = new Float32Array([
-        -lineWidth/2, 0, -0.3,
-        lineWidth/2, 0, -0.3,
-        lineWidth/2, 0, -longNoteLength - 0.3,
-        -lineWidth/2, 0, -longNoteLength - 0.3
-    ]);
-    const indices = new Uint16Array([0, 1, 2, 2, 3, 0]);
-    lineGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    lineGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
-    
-    const longNoteLine = new THREE.Mesh(
-        lineGeometry,
-        new THREE.MeshBasicMaterial({ color: noteColors[key], side: THREE.DoubleSide })
-    );
-    
-    noteGroup.add(longNoteLine);
-    noteGroup.longNoteLine = longNoteLine;
-    noteGroup.longNoteLength = longNoteLength;
-}
-
-// Update notes positions and states
-function updateNotes() {
-    notes.forEach((note, index) => {
-        note.position.z += SCROLL_SPEED;
-
-        if (note.isLongNote) {
-            handleLongNoteUpdate(note, index);
-        } else {
-            handleShortNoteUpdate(note, index);
+        // Break combo streak
+        if (gameManager.comboCount > 0) {
+          soundEffectsManager.playStreakBreak();
+          gameManager.comboCount = 0;
         }
+
+        // Mark that miss sound was played to avoid duplicates
+        note.userData.missSoundPlayed = true;
+      }
+
+      // Handle long notes
+      if (note.userData.isLongNote && note.userData.isBeingHit) {
+        this.updateLongNote(note);
+      }
+
+      // Remove notes that have passed the hit zone
+      if (note.position.z > VISUAL.HIT_POSITION + VISUAL.FRETBOARD_LENGTH / 2) {
+        sceneManager.getScrollingGroup().remove(note);
+        this.notes.splice(index, 1);
+      }
     });
-}
+  }
 
-// Handle long note updates
-function handleLongNoteUpdate(note, index) {
-    if (note.position.z - note.longNoteLength > HIT_POSITION + FRETBOARD_LENGTH/2) {
-        scene.remove(note);
-        notes.splice(index, 1);
-    } else if (!note.isBeingHit && note.position.z > HIT_POSITION + 1) {
-        note.isMissed = true;
-        note.longNoteLine.material.color.setHex(0x808080);
-    }
-}
+  // Update long note during being hit
+  updateLongNote(note) {
+    const currentTime = Date.now();
+    const elapsed = currentTime - note.userData.longNoteStartTime;
 
-// Handle short note updates
-function handleShortNoteUpdate(note, index) {
-    if (note.position.z > HIT_POSITION + FRETBOARD_LENGTH/2) {
-        scene.remove(note);
-        notes.splice(index, 1);
-    }
-}
+    if (elapsed >= note.userData.longNoteDuration) {
+      // Long note completed
+      note.userData.isBeingHit = false;
+      effectsManager.createHitEffect(
+        note.position,
+        this.noteColors[note.userData.key]
+      );
+      soundEffectsManager.playNoteHit(true); // Perfect completion
 
-// Spawn new notes
-function spawnNewNotes() {
-    if (Math.random() < 0.02) {
-        const keys = Object.keys(keyPositions);
-        const randomKey = keys[Math.floor(Math.random() * keys.length)];
-        const isLongNote = Math.random() < 0.3; // 30% chance for a long note
-        createNote(randomKey, isLongNote);
-    }
-}
+      // Track combo for long note completion
+      gameManager.comboCount++;
+      gameManager.maxCombo = Math.max(
+        gameManager.maxCombo,
+        gameManager.comboCount
+      );
+      gameManager.perfectHits++;
 
-// Find a note that can be hit
-function findHitNote(key) {
-    return notes.find(note => 
-        note.key === key && 
-        !note.isMissed &&
-        ((note.isLongNote && Math.abs(note.position.z - HIT_POSITION) < 1) ||
-        (!note.isLongNote && Math.abs(note.position.z - HIT_POSITION) < 1))
-    );
-}
+      // Play combo sound effects
+      soundEffectsManager.playCombo(gameManager.comboCount);
 
-// Handle note hit
-function handleNoteHit(hitNote, key) {
-    if (hitNote.isLongNote) {
-        activeKeys[key] = true;
-        hitNote.isBeingHit = true;
-        hitNote.longNoteLine.material.color.setHex(lightenColor(noteColors[key], 0.5));
+      note.userData.wasHit = true;
+      this.removeNote(note);
+      gameState.addScore(50);
+      uiManager.updateScore();
     } else {
-        scene.remove(hitNote);
-        notes.splice(notes.indexOf(hitNote), 1);
-        score += 50; // Award 50 points for a regular note
+      // Add points for holding long note
+      gameState.addScore(1);
+      uiManager.updateScore();
     }
-    document.getElementById('score').textContent = `Score: ${score}`;
-    createHitEffect(hitNote.position, noteColors[key]);
-}
+  }
 
-// Handle long note release
-function handleLongNoteRelease(key) {
-    const longNote = notes.find(note => 
-        note.key === key && 
-        note.isLongNote && 
-        note.isBeingHit &&
-        note.position.z >= HIT_POSITION && 
-        note.position.z - note.longNoteLength <= HIT_POSITION
+  // Handle key press
+  handleKeyPress(key) {
+    const hitNote = this.findNoteInHitZone(key);
+
+    if (hitNote) {
+      if (hitNote.userData.isLongNote) {
+        this.startLongNote(hitNote);
+      } else {
+        this.hitNote(hitNote);
+      }
+    }
+  }
+
+  // Find note in hit zone
+  findNoteInHitZone(key) {
+    return this.notes.find(
+      (note) =>
+        note.userData.key === key &&
+        Math.abs(note.position.z - VISUAL.HIT_POSITION) < 2 &&
+        !note.userData.isBeingHit
     );
-    if (longNote) {
-        longNote.isBeingHit = false;
-        if (longNote.position.z > HIT_POSITION + 1) {
-            longNote.isMissed = true;
-            longNote.longNoteLine.material.color.setHex(0x808080);
-        } else {
-            longNote.longNoteLine.material.color.setHex(noteColors[key]);
-        }
+  }
+
+  // Hit a regular note
+  hitNote(note) {
+    // Create hit effect before removing the note
+    effectsManager.createHitEffect(
+      note.position,
+      this.noteColors[note.userData.key]
+    );
+
+    // Play hit sound effect
+    const timing = Math.abs(note.position.z - VISUAL.HIT_POSITION);
+    const isPerfect = timing < 0.5; // Perfect hit if within 0.5 units
+    soundEffectsManager.playNoteHit(isPerfect);
+
+    // Track combo and play combo sounds
+    gameManager.comboCount++;
+    gameManager.maxCombo = Math.max(
+      gameManager.maxCombo,
+      gameManager.comboCount
+    );
+    if (isPerfect) {
+      gameManager.perfectHits++;
     }
+
+    // Play combo sound effects
+    soundEffectsManager.playCombo(gameManager.comboCount);
+
+    // Mark note as hit
+    note.userData.wasHit = true;
+    this.removeNote(note);
+    gameState.addScore(50);
+    uiManager.updateScore();
+  }
+
+  // Start hitting a long note
+  startLongNote(note) {
+    note.userData.isBeingHit = true;
+    note.userData.longNoteStartTime = Date.now();
+  }
+
+  // Handle long notes that are currently being hit
+  handleLongNotes() {
+    this.notes.forEach((note) => {
+      if (note.userData.isLongNote && note.userData.isBeingHit) {
+        const key = note.userData.key;
+        if (!gameState.activeKeys[key]) {
+          // Key released, end long note
+          note.userData.isBeingHit = false;
+          this.removeNote(note);
+          gameState.addScore(25); // Partial score for long note
+          uiManager.updateScore();
+        }
+      }
+    });
+  }
+
+  // Remove note from scene and array
+  removeNote(note) {
+    sceneManager.getScrollingGroup().remove(note);
+    const index = this.notes.indexOf(note);
+    if (index > -1) {
+      this.notes.splice(index, 1);
+    }
+  }
 }
 
-// Handle long notes that are currently being hit
-function handleLongNotes() {
-    Object.keys(activeKeys).forEach(key => {
-        const hitNote = notes.find(note => 
-            note.key === key && 
-            note.isLongNote && 
-            note.isBeingHit &&
-            note.position.z >= HIT_POSITION && 
-            note.position.z - note.longNoteLength <= HIT_POSITION
-        );
-        if (hitNote) {
-            score += 1;
-            document.getElementById('score').textContent = `Score: ${score}`;
-            createHitEffect(hitNote.position, noteColors[key]);
-        }
-    });
-}
+// Export singleton instance
+export const noteManager = new NoteManager();

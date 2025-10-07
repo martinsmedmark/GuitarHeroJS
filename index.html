@@ -1,26 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>3D Guitar Hero</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap">
-    <link rel="stylesheet" href="./css/styles.css">
-</head>
-<body>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+    />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
     <div id="game-container">
-        <div id="info">GuitarHeroJS</div>
-        <div id="score">Score: 0</div>
-        <div id="buttons">
-            <button id="startBtn">Start</button>
-            <button id="pauseBtn">Pause</button>
-            <button id="debugBtn">Debug</button>
+      <div id="info">GuitarHeroJS</div>
+      <div id="score">Score: 0</div>
+      <div id="buttons">
+        <button id="startBtn" disabled>Loading Music...</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="debugBtn">Debug</button>
+      </div>
+
+      <!-- Pause Menu -->
+      <div id="pauseMenu" class="menu-overlay">
+        <div class="menu-content">
+          <h2>Game Settings</h2>
+
+          <!-- Difficulty Selector -->
+          <div class="difficulty-section">
+            <h3>Difficulty</h3>
+            <div class="difficulty-buttons">
+              <button class="difficulty-btn" data-difficulty="easy">
+                Easy
+              </button>
+              <button class="difficulty-btn selected" data-difficulty="medium">
+                Medium
+              </button>
+              <button class="difficulty-btn" data-difficulty="hard">
+                Hard
+              </button>
+            </div>
+          </div>
+
+          <!-- Song Selection -->
+          <div class="song-section">
+            <h3>Select Song</h3>
+            <div id="songList" class="song-list">
+              <!-- Songs will be populated by JavaScript -->
+            </div>
+          </div>
+
+          <div class="menu-buttons">
+            <button id="resumeBtn" class="menu-btn">Resume</button>
+            <button id="restartBtn" class="menu-btn start-mode">Start</button>
+          </div>
         </div>
+      </div>
+
+      <!-- End Game Screen -->
+      <div id="endGameScreen" class="menu-overlay">
+        <div class="menu-content">
+          <h2>Song Complete!</h2>
+
+          <!-- Final Score Display -->
+          <div class="score-section">
+            <h3>Final Score</h3>
+            <div id="finalScore" class="final-score">0</div>
+          </div>
+
+          <!-- Song Selection -->
+          <div class="song-section">
+            <h3>Select New Song</h3>
+            <div id="endGameSongList" class="song-list">
+              <!-- Songs will be populated by JavaScript -->
+            </div>
+          </div>
+
+          <div class="menu-buttons">
+            <button id="playAgainBtn" class="menu-btn start-mode">
+              Play Again
+            </button>
+            <button id="newSongBtn" class="menu-btn">New Song</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="music-controls">
+        <label for="volumeSlider">Music Volume:</label>
+        <input type="range" id="volumeSlider" min="0" max="100" value="50" />
+        <span id="volumeDisplay">50%</span>
+        <div id="beatIndicator">🎵</div>
+      </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="./engine/scene.js"></script>
-    <script src="./engine/notes.js"></script>
-    <script src="./engine/effects.js"></script>
-    <script src="./engine/main.js"></script>
-</body>
+    <script type="module" src="./engine/main.js"></script>
+  </body>
 </html>
