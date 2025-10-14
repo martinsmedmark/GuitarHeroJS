@@ -1,7 +1,7 @@
 // effects.js
 // Particle effects and visual enhancements
 
-import * as THREE from "/node_modules/three/build/three.module.js";
+import * as THREE from "three";
 import { sceneManager } from "./scene.js";
 import { VISUAL } from "./constants.js";
 

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<imusic
+
+  xmlns="https://www.w3schools.com"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="https://www.w3schools.com https://momdev.se/lindetorp/imusic/scheme_1.1.28.xsd"
+  
+  version="1.0" 
+  tempo="115" 
+  timeSign="4/4"
+  loopLength="8"
+
+  changeOnNext="1/2" 
+  fadeTime="100"
+  showGUI="true">
+
+  <arrangement class="tarzan">
+    <track src="audio/songs/tarzan.mp3" loopLength="off" />
+  </arrangement>
+
+  <arrangement class="ifYou">
+    <track src="audio/songs/if-you.mp3" loopLength="off" />
+  </arrangement>
+
+  <arrangement class="freestyle">
+    <track src="audio/songs/freestyle.mp3" loopLength="off" />
+  </arrangement>
+
+  <!-- Sound Effects moved to audioPool system -->
+
+</imusic>

@@ -1,65 +1,55 @@
-// notes.js
-// Note creation and management
+// notes.js - Three.js compatible notes engine
 
-import * as THREE from "/node_modules/three/build/three.module.js";
-import { VISUAL, NOTE_COLORS, KEY_POSITIONS } from "./constants.js";
-import { gameState } from "./gameState.js";
-import { sceneManager } from "./scene.js";
-import { uiManager } from "./ui.js";
+// Import dependencies
+import { gameEngine } from "./gameManager.js";
+import { playNoteMiss, playNoteHit } from "./audioManager.js";
+import * as THREE from "three";
+import { NOTE_COLORS, KEY_POSITIONS, VISUAL } from "./constants.js";
 import { effectsManager } from "./effects.js";
-import { soundEffectsManager } from "./soundEffects.js";
-import { gameManager } from "./gameManager.js";
+import { sceneManager } from "./scene.js";
 
-class NoteManager {
-  constructor() {
-    this.notes = [];
-    this.noteColors = NOTE_COLORS;
-    this.keyPositions = KEY_POSITIONS;
-  }
+// Notes Engine (Three.js compatible)
+var notesEngine = {
+  notes: [],
+  scene: null,
 
-  // Clear all notes from the scene
-  clearAllNotes() {
-    this.notes.forEach((note) => {
-      sceneManager.getScrollingGroup().remove(note);
-    });
-    this.notes.length = 0;
-  }
+  init: function (scene) {
+    this.scene = scene;
+  },
 
-  // Create a new note
-  createNote(key, isLongNote = false) {
-    const noteGroup = new THREE.Group();
-    const color = this.noteColors[key];
-    const x = this.keyPositions[key];
+  create: function (key) {
+    // Create note group (like original)
+    var noteGroup = new THREE.Group();
+    var color = NOTE_COLORS[key];
+    var x = KEY_POSITIONS[key];
 
-    // Create note visual
+    // Create note visual (exactly like original)
     this.createNoteVisual(noteGroup, color);
 
     // Set note properties
-    const startZ = -VISUAL.FRETBOARD_LENGTH / 2; // Start at the back of the fretboard
+    var startZ = -VISUAL.FRETBOARD_LENGTH / 2; // Start at the back of the fretboard
     noteGroup.position.set(x, 0.28, startZ);
     noteGroup.userData = {
       key: key,
-      isLongNote: isLongNote,
+      isLongNote: false,
       isBeingHit: false,
-      wasHit: false, // Track if note was successfully hit
-      longNoteStartTime: isLongNote ? Date.now() : null,
-      longNoteDuration: isLongNote ? 1000 : 0, // 1 second for long notes
+      wasHit: false,
+      longNoteStartTime: null,
+      longNoteDuration: 0,
     };
 
-    sceneManager.getScrollingGroup().add(noteGroup);
-    this.notes.push(noteGroup);
+    // Add to scene
+    if (this.scene) {
+      this.scene.add(noteGroup);
+    }
 
-    console.log(
-      `Created note for key ${key} at position (${x}, 0.28, ${startZ}), hit position: ${
-        VISUAL.HIT_POSITION
-      }, removal at: ${VISUAL.HIT_POSITION + VISUAL.FRETBOARD_LENGTH / 2}`
-    );
-  }
+    return noteGroup;
+  },
 
-  // Create note visual elements
-  createNoteVisual(noteGroup, color) {
+  // Create note visual elements (exactly like original)
+  createNoteVisual: function (noteGroup, color) {
     // Colored border
-    const coloredBorder = new THREE.Mesh(
+    var coloredBorder = new THREE.Mesh(
       new THREE.TorusGeometry(VISUAL.NOTE_RADIUS - 0.05, 0.1, 16, 100),
       new THREE.MeshPhongMaterial({ color: color, shininess: 100 })
     );
@@ -67,7 +57,7 @@ class NoteManager {
     noteGroup.add(coloredBorder);
 
     // Black inner border
-    const blackBorder = new THREE.Mesh(
+    var blackBorder = new THREE.Mesh(
       new THREE.TorusGeometry(VISUAL.NOTE_RADIUS - 0.18, 0.03, 16, 100),
       new THREE.MeshPhongMaterial({ color: 0x000000, shininess: 100 })
     );
@@ -75,7 +65,7 @@ class NoteManager {
     noteGroup.add(blackBorder);
 
     // White center
-    const whiteCenter = new THREE.Mesh(
+    var whiteCenter = new THREE.Mesh(
       new THREE.CylinderGeometry(
         VISUAL.NOTE_RADIUS - 0.21,
         VISUAL.NOTE_RADIUS - 0.21,
@@ -85,177 +75,114 @@ class NoteManager {
       new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 100 })
     );
     noteGroup.add(whiteCenter);
-  }
+  },
 
-  // Update notes positions and states
-  updateNotes(scrollSpeed) {
-    this.notes.forEach((note, index) => {
-      // Move note forward
-      note.position.z += scrollSpeed;
-
-      // Debug: Log when note enters hit zone
-      if (
-        Math.abs(note.position.z - VISUAL.HIT_POSITION) < 3 &&
-        !note.userData.hitZoneLogged
-      ) {
-        note.userData.hitZoneLogged = true;
-      }
-
-      // Check if note passed hit zone without being hit
-      if (
-        note.position.z > VISUAL.HIT_POSITION + 2 &&
-        !note.userData.wasHit &&
-        !note.userData.missSoundPlayed
-      ) {
-        // Play miss sound immediately when note passes hit zone
-        soundEffectsManager.playNoteMiss();
-
-        // Break combo streak
-        if (gameManager.comboCount > 0) {
-          soundEffectsManager.playStreakBreak();
-          gameManager.comboCount = 0;
+  destroy: function (note) {
+    if (note && this.scene) {
+      // Dispose of all child meshes in the group
+      note.traverse(function (child) {
+        if (child.geometry) {
+          child.geometry.dispose();
         }
+        if (child.material) {
+          child.material.dispose();
+        }
+      });
 
-        // Mark that miss sound was played to avoid duplicates
-        note.userData.missSoundPlayed = true;
-      }
+      this.scene.remove(note);
+    }
+  },
 
-      // Handle long notes
-      if (note.userData.isLongNote && note.userData.isBeingHit) {
-        this.updateLongNote(note);
-      }
+  add: function (key) {
+    var note = notesEngine.create(key);
+    notesEngine.notes.push(note);
+    return note;
+  },
+
+  remove: function (note) {
+    var index = notesEngine.notes.indexOf(note);
+    if (index > -1) {
+      notesEngine.notes.splice(index, 1);
+    }
+    notesEngine.destroy(note);
+  },
+
+  clearAll: function () {
+    for (var i = notesEngine.notes.length - 1; i >= 0; i--) {
+      notesEngine.destroy(notesEngine.notes[i]);
+    }
+    notesEngine.notes = [];
+  },
+
+  update: function () {
+    if (!gameEngine.isPlaying) return;
+
+    // Move notes forward (towards the player)
+    var difficultySettings = gameEngine.getCurrentDifficultySettings();
+    for (var i = notesEngine.notes.length - 1; i >= 0; i--) {
+      var note = notesEngine.notes[i];
+      note.position.z += difficultySettings.scrollSpeed / 100; // Apply difficulty-based scroll speed
 
       // Remove notes that have passed the hit zone
-      if (note.position.z > VISUAL.HIT_POSITION + VISUAL.FRETBOARD_LENGTH / 2) {
-        sceneManager.getScrollingGroup().remove(note);
-        this.notes.splice(index, 1);
-      }
-    });
-  }
-
-  // Update long note during being hit
-  updateLongNote(note) {
-    const currentTime = Date.now();
-    const elapsed = currentTime - note.userData.longNoteStartTime;
-
-    if (elapsed >= note.userData.longNoteDuration) {
-      // Long note completed
-      note.userData.isBeingHit = false;
-      effectsManager.createHitEffect(
-        note.position,
-        this.noteColors[note.userData.key]
-      );
-      soundEffectsManager.playNoteHit(true); // Perfect completion
-
-      // Track combo for long note completion
-      gameManager.comboCount++;
-      gameManager.maxCombo = Math.max(
-        gameManager.maxCombo,
-        gameManager.comboCount
-      );
-      gameManager.perfectHits++;
-
-      // Play combo sound effects
-      soundEffectsManager.playCombo(gameManager.comboCount);
-
-      note.userData.wasHit = true;
-      this.removeNote(note);
-      gameState.addScore(50);
-      uiManager.updateScore();
-    } else {
-      // Add points for holding long note
-      gameState.addScore(1);
-      uiManager.updateScore();
-    }
-  }
-
-  // Handle key press
-  handleKeyPress(key) {
-    const hitNote = this.findNoteInHitZone(key);
-
-    if (hitNote) {
-      if (hitNote.userData.isLongNote) {
-        this.startLongNote(hitNote);
-      } else {
-        this.hitNote(hitNote);
+      if (note.position.z > VISUAL.HIT_POSITION + 5) {
+        notesEngine.remove(note);
+        gameEngine.missNote();
+        playNoteMiss();
       }
     }
-  }
+  },
 
-  // Find note in hit zone
-  findNoteInHitZone(key) {
-    return this.notes.find(
-      (note) =>
-        note.userData.key === key &&
-        Math.abs(note.position.z - VISUAL.HIT_POSITION) < 2 &&
-        !note.userData.isBeingHit
-    );
-  }
+  hitNote: function (key) {
+    var hitNote = null;
+    var minDistance = Infinity;
 
-  // Hit a regular note
-  hitNote(note) {
-    // Create hit effect before removing the note
-    effectsManager.createHitEffect(
-      note.position,
-      this.noteColors[note.userData.key]
-    );
+    // Check for notes to hit
+    for (var i = 0; i < notesEngine.notes.length; i++) {
+      var note = notesEngine.notes[i];
+      if (note.userData.key === key) {
+        var distance = Math.abs(note.position.z - VISUAL.HIT_POSITION);
 
-    // Play hit sound effect
-    const timing = Math.abs(note.position.z - VISUAL.HIT_POSITION);
-    const isPerfect = timing < 0.5; // Perfect hit if within 0.5 units
-    soundEffectsManager.playNoteHit(isPerfect);
-
-    // Track combo and play combo sounds
-    gameManager.comboCount++;
-    gameManager.maxCombo = Math.max(
-      gameManager.maxCombo,
-      gameManager.comboCount
-    );
-    if (isPerfect) {
-      gameManager.perfectHits++;
-    }
-
-    // Play combo sound effects
-    soundEffectsManager.playCombo(gameManager.comboCount);
-
-    // Mark note as hit
-    note.userData.wasHit = true;
-    this.removeNote(note);
-    gameState.addScore(50);
-    uiManager.updateScore();
-  }
-
-  // Start hitting a long note
-  startLongNote(note) {
-    note.userData.isBeingHit = true;
-    note.userData.longNoteStartTime = Date.now();
-  }
-
-  // Handle long notes that are currently being hit
-  handleLongNotes() {
-    this.notes.forEach((note) => {
-      if (note.userData.isLongNote && note.userData.isBeingHit) {
-        const key = note.userData.key;
-        if (!gameState.activeKeys[key]) {
-          // Key released, end long note
-          note.userData.isBeingHit = false;
-          this.removeNote(note);
-          gameState.addScore(25); // Partial score for long note
-          uiManager.updateScore();
+        if (distance < minDistance && distance < 3) {
+          // Within hit range
+          minDistance = distance;
+          hitNote = note;
         }
       }
-    });
-  }
-
-  // Remove note from scene and array
-  removeNote(note) {
-    sceneManager.getScrollingGroup().remove(note);
-    const index = this.notes.indexOf(note);
-    if (index > -1) {
-      this.notes.splice(index, 1);
     }
-  }
-}
 
-// Export singleton instance
-export const noteManager = new NoteManager();
+    if (hitNote) {
+      // Create visual hit effect before removing the note
+      effectsManager.createHitEffect(
+        hitNote.position,
+        NOTE_COLORS[hitNote.userData.key]
+      );
+
+      // Reset the hitmarker since we successfully hit a note
+      sceneManager.updateHitMarker(hitNote.userData.key, false);
+
+      notesEngine.remove(hitNote);
+      if (minDistance < 1) {
+        gameEngine.goodNoteHit();
+        playNoteHit(true); // Perfect hit
+      } else {
+        gameEngine.badNoteHit();
+        playNoteHit(false); // Good hit but not perfect
+      }
+      return true;
+    }
+
+    // Return true if a note was hit
+    return hitNote !== null;
+  },
+
+  spawnNote: function () {
+    if (!gameEngine.isPlaying) return;
+
+    var keys = ["A", "S", "D", "F", "G"];
+    var randomKey = keys[Math.floor(Math.random() * keys.length)];
+    notesEngine.add(randomKey);
+  },
+};
+
+// Export for use in other modules
+export { notesEngine };

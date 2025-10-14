@@ -1,267 +1,231 @@
-// ui.js
-// UI management and interactions
+// ui.js - Exactly like taptaptap toolsBox (ES6 compatible)
 
-import { gameState } from "./gameState.js";
-import { SONGS } from "./constants.js";
-import { soundEffectsManager } from "./soundEffects.js";
+// Import dependencies
+import { gameEngine } from "./gameManager.js";
+import {
+  playButtonClick,
+  playDifficultyChange,
+  playSongComplete,
+  playMenuOpen,
+  playMenuClose,
+} from "./audioManager.js";
 
-class UIManager {
-  constructor() {
-    this.elements = {
-      startBtn: document.getElementById("startBtn"),
-      pauseBtn: document.getElementById("pauseBtn"),
-      debugBtn: document.getElementById("debugBtn"),
-      score: document.getElementById("score"),
-      volumeSlider: document.getElementById("volumeSlider"),
-      volumeDisplay: document.getElementById("volumeDisplay"),
-      beatIndicator: document.getElementById("beatIndicator"),
-      pauseMenu: document.getElementById("pauseMenu"),
-      endGameScreen: document.getElementById("endGameScreen"),
-      resumeBtn: document.getElementById("resumeBtn"),
-      restartBtn: document.getElementById("restartBtn"),
-      playAgainBtn: document.getElementById("playAgainBtn"),
-      newSongBtn: document.getElementById("newSongBtn"),
-      songList: document.getElementById("songList"),
-      endGameSongList: document.getElementById("endGameSongList"),
-      finalScore: document.getElementById("finalScore"),
-    };
-  }
+// General UI functions (ES6 compatible)
+var toolsBox = {
+  showPage: function (page) {
+    page.style.display = "block";
+  },
+  hidePage: function (page) {
+    page.style.display = "none";
+  },
+  onClickNTouchstart: function (element, fun) {
+    // add click and touchstart event listeners
+    element.addEventListener("click", fun, false);
+    element.addEventListener("touchstart", fun, false);
+  },
+  toggleAnimation: function (element, animationClass) {
+    // add animation class and remove it when it's done
+    element.classList.add(animationClass);
+    element.addEventListener(
+      "animationend",
+      function () {
+        element.classList.remove(animationClass);
+      },
+      false
+    );
+  },
+};
 
-  // Initialize UI
-  init() {
+// UI Manager (simplified like taptaptap)
+var uiManager = {
+  init: async function () {
     this.setupEventListeners();
-    this.updateScore();
-    this.populateSongList();
-  }
+    await this.populateSongList();
+    this.initializeDefaultDifficulty();
+  },
 
-  // Setup all event listeners
-  setupEventListeners() {
-    // Main game buttons
-    this.elements.startBtn.addEventListener("click", () => this.onStartClick());
-    this.elements.pauseBtn.addEventListener("click", () => this.onPauseClick());
-    this.elements.debugBtn.addEventListener("click", () => this.onDebugClick());
+  setupEventListeners: function () {
+    // Start button
+    var startBtn = document.getElementById("startBtn");
+    if (startBtn) {
+      startBtn.onclick = function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        playButtonClick();
+        gameEngine.start();
+      };
+    }
 
-    // Volume control
-    this.elements.volumeSlider.addEventListener("input", (e) =>
-      this.onVolumeChange(e)
-    );
+    // Pause button
+    var pauseBtn = document.getElementById("pauseBtn");
+    if (pauseBtn) {
+      pauseBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        playButtonClick();
+        if (gameEngine.isPlaying) {
+          gameEngine.pause();
+        } else {
+          gameEngine.stop();
+        }
+      });
+    }
 
-    // Menu buttons
-    this.elements.resumeBtn.addEventListener("click", () =>
-      this.onResumeClick()
-    );
-    this.elements.restartBtn.addEventListener("click", () =>
-      this.onRestartClick()
-    );
-    this.elements.playAgainBtn.addEventListener("click", () =>
-      this.onPlayAgainClick()
-    );
-    this.elements.newSongBtn.addEventListener("click", () =>
-      this.onNewSongClick()
-    );
+    // Resume button
+    var resumeBtn = document.getElementById("resumeBtn");
+    if (resumeBtn) {
+      toolsBox.onClickNTouchstart(resumeBtn, function () {
+        playButtonClick();
+        gameEngine.resume();
+      });
+    }
+
+    // Restart button (Start button in pause menu)
+    var restartBtn = document.getElementById("restartBtn");
+    if (restartBtn) {
+      toolsBox.onClickNTouchstart(restartBtn, function () {
+        playButtonClick();
+        gameEngine.start();
+      });
+    }
+
+    // Play again button
+    var playAgainBtn = document.getElementById("playAgainBtn");
+    if (playAgainBtn) {
+      toolsBox.onClickNTouchstart(playAgainBtn, function () {
+        playButtonClick();
+        gameEngine.start();
+      });
+    }
+
+    // New song button
+    var newSongBtn = document.getElementById("newSongBtn");
+    if (newSongBtn) {
+      toolsBox.onClickNTouchstart(newSongBtn, function () {
+        playButtonClick();
+        gameEngine.stop();
+      });
+    }
+
+    // Volume slider
+    var volumeSlider = document.getElementById("volumeSlider");
+    if (volumeSlider) {
+      volumeSlider.addEventListener("input", function (e) {
+        var volume = e.target.value / 100;
+        document.getElementById("volumeDisplay").innerHTML =
+          e.target.value + "%";
+        // Volume control would go here if needed
+      });
+    }
 
     // Difficulty buttons
-    document.querySelectorAll(".difficulty-btn").forEach((btn) => {
-      btn.addEventListener("click", () =>
-        this.onDifficultyClick(btn.dataset.difficulty)
-      );
-    });
+    var difficultyBtns = document.querySelectorAll(".difficulty-btn");
+    difficultyBtns.forEach(function (button) {
+      toolsBox.onClickNTouchstart(button, function () {
+        playButtonClick();
+        var difficulty = button.dataset.difficulty;
 
-    // Keyboard controls
-    document.addEventListener("keydown", (e) => this.onKeyDown(e));
-    document.addEventListener("keyup", (e) => this.onKeyUp(e));
-  }
+        // Store the selected difficulty in gameEngine
+        gameEngine.selectDifficulty(difficulty);
 
-  // Event handlers
-  onStartClick() {
-    soundEffectsManager.playButtonClick();
-    this.dispatchEvent("startGame");
-  }
+        // Play difficulty change sound
+        playDifficultyChange();
 
-  onPauseClick() {
-    soundEffectsManager.playButtonClick();
-    this.dispatchEvent("pauseGame");
-  }
-
-  onDebugClick() {
-    soundEffectsManager.playButtonClick();
-    gameState.toggleDebug();
-    this.elements.debugBtn.textContent = gameState.debugMode
-      ? "Debug ON"
-      : "Debug";
-  }
-
-  onVolumeChange(e) {
-    const volume = e.target.value / 100;
-    this.elements.volumeDisplay.textContent = `${e.target.value}%`;
-    this.dispatchEvent("volumeChange", { volume });
-  }
-
-  onResumeClick() {
-    soundEffectsManager.playButtonClick();
-    this.dispatchEvent("resumeGame");
-  }
-
-  onRestartClick() {
-    soundEffectsManager.playButtonClick();
-    this.dispatchEvent("restartGame");
-  }
-
-  onPlayAgainClick() {
-    soundEffectsManager.playButtonClick();
-    this.dispatchEvent("playAgain");
-  }
-
-  onNewSongClick() {
-    soundEffectsManager.playButtonClick();
-    this.dispatchEvent("showSongSelection");
-  }
-
-  onDifficultyClick(difficulty) {
-    soundEffectsManager.playButtonClick();
-    this.dispatchEvent("changeDifficulty", { difficulty });
-  }
-
-  onKeyDown(event) {
-    this.dispatchEvent("keyDown", { key: event.key.toUpperCase() });
-  }
-
-  onKeyUp(event) {
-    this.dispatchEvent("keyUp", { key: event.key.toUpperCase() });
-  }
-
-  // Custom event dispatcher
-  dispatchEvent(eventName, detail = {}) {
-    const event = new CustomEvent(eventName, { detail });
-    document.dispatchEvent(event);
-  }
-
-  // UI Updates
-  updateScore() {
-    this.elements.score.textContent = `Score: ${gameState.score}`;
-  }
-
-  updateStartButton(text, disabled = false) {
-    this.elements.startBtn.textContent = text;
-    this.elements.startBtn.disabled = disabled;
-
-    // Update pause button state based on game state
-    if (gameState.isPlaying) {
-      this.elements.pauseBtn.disabled = false;
-      this.elements.pauseBtn.textContent = "Pause";
-    } else {
-      this.elements.pauseBtn.disabled = true;
-      this.elements.pauseBtn.textContent = "Pause";
-    }
-  }
-
-  updateMenuButtons() {
-    const hasPlayed = gameState.gameStartTime > 0;
-    const isPlaying = gameState.isPlaying;
-
-    if (hasPlayed && !isPlaying) {
-      // Game was started but is now paused
-      this.elements.resumeBtn.style.display = "inline-block";
-      this.elements.restartBtn.textContent = "Restart";
-      this.elements.restartBtn.className = "menu-btn restart-mode";
-    } else if (hasPlayed && isPlaying) {
-      // Game is currently playing (shouldn't see menu, but just in case)
-      this.elements.resumeBtn.style.display = "none";
-      this.elements.restartBtn.textContent = "Restart";
-      this.elements.restartBtn.className = "menu-btn restart-mode";
-    } else {
-      // Game hasn't been started yet
-      this.elements.resumeBtn.style.display = "none";
-      this.elements.restartBtn.textContent = "Start";
-      this.elements.restartBtn.className = "menu-btn start-mode";
-    }
-  }
-
-  updateDifficultyButtons(selectedDifficulty) {
-    document.querySelectorAll(".difficulty-btn").forEach((btn) => {
-      btn.classList.remove("selected");
-    });
-    document
-      .querySelector(`[data-difficulty="${selectedDifficulty}"]`)
-      .classList.add("selected");
-  }
-
-  // Menu management
-  showPauseMenu() {
-    console.log("Showing pause menu and populating song list");
-    soundEffectsManager.playMenuOpen();
-    this.elements.pauseMenu.style.display = "flex";
-    this.populateSongList();
-    this.updateMenuButtons();
-  }
-
-  hidePauseMenu() {
-    soundEffectsManager.playMenuClose();
-    this.elements.pauseMenu.style.display = "none";
-  }
-
-  showEndGameScreen() {
-    soundEffectsManager.playSongComplete();
-    this.elements.finalScore.textContent = gameState.score;
-    this.populateEndGameSongList();
-    this.elements.endGameScreen.style.display = "flex";
-  }
-
-  hideEndGameScreen() {
-    soundEffectsManager.playMenuClose();
-    this.elements.endGameScreen.style.display = "none";
-  }
-
-  // Song list population
-  populateSongList() {
-    this.populateSongListInElement(this.elements.songList, "songSelected");
-  }
-
-  populateEndGameSongList() {
-    this.populateSongListInElement(
-      this.elements.endGameSongList,
-      "endGameSongSelected"
-    );
-  }
-
-  populateSongListInElement(element, eventName) {
-    element.innerHTML = "";
-
-    SONGS.forEach((song) => {
-      const songItem = document.createElement("div");
-      songItem.className = "song-item";
-      songItem.innerHTML = `
-        <div class="song-name">${song.displayName}</div>
-        <div class="song-bpm">${song.bpm} BPM</div>
-      `;
-
-      songItem.addEventListener("click", () => {
-        // Remove previous selection
-        element.querySelectorAll(".song-item").forEach((item) => {
-          item.classList.remove("selected");
+        // Remove selected class from all difficulty buttons
+        difficultyBtns.forEach(function (btn) {
+          btn.classList.remove("selected");
         });
 
-        // Add selection to clicked item
-        songItem.classList.add("selected");
+        // Add selected class to clicked button
+        button.classList.add("selected");
+      });
+    });
+  },
 
-        // Dispatch event
-        this.dispatchEvent(eventName, { song });
+  updateScore: function () {
+    document.getElementById("score").innerHTML = "Score: " + gameEngine.score;
+  },
+
+  showPauseMenu: function () {
+    var pauseMenu = document.getElementById("pauseMenu");
+    if (pauseMenu) {
+      pauseMenu.classList.add("show");
+      playMenuOpen();
+    }
+  },
+
+  hidePauseMenu: function () {
+    var pauseMenu = document.getElementById("pauseMenu");
+    if (pauseMenu) {
+      pauseMenu.classList.remove("show");
+      playMenuClose();
+    }
+  },
+
+  showEndGameScreen: function () {
+    var endGameScreen = document.getElementById("endGameScreen");
+    if (endGameScreen) {
+      endGameScreen.classList.remove("hide");
+      document.getElementById("finalScore").innerHTML = gameEngine.score;
+      playSongComplete();
+    }
+  },
+
+  hideEndGameScreen: function () {
+    var endGameScreen = document.getElementById("endGameScreen");
+    if (endGameScreen) {
+      endGameScreen.classList.add("hide");
+      playMenuClose();
+    }
+  },
+
+  populateSongList: async function () {
+    // Initialize songs from XML first
+    await gameEngine.initializeSongs();
+
+    var songList = document.getElementById("songList");
+    if (songList) {
+      songList.innerHTML = ""; // Clear existing list
+
+      gameEngine.songs.forEach(function (song) {
+        var songItem = document.createElement("div");
+        songItem.classList.add("song-item");
+        songItem.textContent = song.displayName;
+        songItem.addEventListener("click", function () {
+          playButtonClick();
+          gameEngine.selectSong(song);
+
+          // Remove selected class from all song items
+          var allSongItems = document.querySelectorAll(".song-item");
+          allSongItems.forEach(function (item) {
+            item.classList.remove("selected");
+          });
+
+          // Add selected class to clicked song item
+          songItem.classList.add("selected");
+
+          // Update start button text
+          document.getElementById("startBtn").innerHTML = "Start";
+          document.getElementById("startBtn").disabled = false;
+        });
+        songList.appendChild(songItem);
       });
 
-      element.appendChild(songItem);
-    });
-  }
-
-  // Beat indicator
-  showBeatIndicator() {
-    if (this.elements.beatIndicator) {
-      this.elements.beatIndicator.classList.add("beat");
-      setTimeout(() => {
-        this.elements.beatIndicator.classList.remove("beat");
-      }, 100);
+      // Select the first song by default
+      if (gameEngine.songs.length > 0) {
+        var firstSongItem = songList.querySelector(".song-item");
+        if (firstSongItem) {
+          firstSongItem.classList.add("selected");
+        }
+      }
     }
-  }
-}
+  },
 
-// Export singleton instance
-export const uiManager = new UIManager();
+  initializeDefaultDifficulty: function () {
+    // Set the default difficulty in gameEngine to match the UI
+    gameEngine.selectDifficulty("medium");
+  },
+};
+
+// Export for use in other modules
+export { uiManager, toolsBox };

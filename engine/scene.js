@@ -1,6 +1,6 @@
 // scene.js
 // Scene setup and rendering
-import * as THREE from "/node_modules/three/build/three.module.js";
+import * as THREE from "three";
 import { VISUAL, NOTE_COLORS, KEY_POSITIONS } from "./constants.js";
 import { gameState } from "./gameState.js";
 
@@ -74,13 +74,6 @@ class SceneManager {
       "/images/concert-stage-bg.jpg",
       // Success callback
       (texture) => {
-        console.log("Background texture loaded successfully:", texture);
-        console.log(
-          "Texture dimensions:",
-          texture.image.width,
-          "x",
-          texture.image.height
-        );
         // Configure texture for skybox
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
@@ -88,19 +81,12 @@ class SceneManager {
 
         // Set the scene background
         this.scene.background = texture;
-        console.log("Background texture applied to scene");
       },
       // Progress callback
-      (progress) => {
-        console.log(
-          "Loading progress:",
-          (progress.loaded / progress.total) * 100 + "%"
-        );
-      },
+      (progress) => {},
       // Error callback
       (error) => {
         console.error("Failed to load background texture:", error);
-        console.log("Attempted to load from: /images/concert-stage-bg.jpg");
         // Set fallback background color
         this.scene.background = new THREE.Color(0x1a1a2e);
       }
@@ -410,7 +396,6 @@ class SceneManager {
     const newTexture = textureLoader.load(
       `/images/${imageName}`,
       (texture) => {
-        console.log(`Background changed to: ${imageName}`);
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
         texture.needsUpdate = true;

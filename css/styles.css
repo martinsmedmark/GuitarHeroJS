@@ -1,3 +1,7 @@
+:root {
+  --waxml-open-button-width: 110px;
+}
+
 body {
   margin: 0;
   overflow: hidden;
@@ -53,9 +57,17 @@ canvas {
 
 #buttons {
   top: 20px;
-  right: 20px;
+  right: calc(var(--waxml-open-button-width) + 40px);
   display: flex;
   gap: 15px;
+}
+
+.waxml-open-button {
+  z-index: 1000;
+  top: 20px !important;
+  right: 20px !important;
+  width: var(--waxml-open-button-width);
+  position: absolute;
 }
 
 button {
@@ -89,9 +101,6 @@ button:disabled {
 }
 #pauseBtn {
   background-color: rgba(244, 67, 54, 0.3);
-}
-#debugBtn {
-  background-color: rgba(0, 140, 186, 0.3);
 }
 
 #music-controls {
@@ -176,6 +185,16 @@ button:disabled {
   align-items: center;
   z-index: 1000;
   backdrop-filter: blur(5px);
+}
+
+/* Hide pause menu by default */
+#pauseMenu {
+  display: none !important;
+}
+
+/* Show pause menu when needed */
+#pauseMenu.show {
+  display: flex !important;
 }
 
 .menu-content {

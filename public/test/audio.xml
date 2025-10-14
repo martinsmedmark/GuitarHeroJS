@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Audio 
+    xmlns="https://www.w3schools.com"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="https://www.w3schools.com https://momdev.se/lindetorp/waxml/scheme_1.20.xsd"
+    version="1.0" 
+    timeUnit="ms" 
+    gain="-5dB"
+    controls="true">
+
+    <!-- Variables for the dynamic mixer -->
+    <var name="sfx_intensity" default="0" mapin="0,1" />
+    <var name="sfx_blend" default="0"/>
+    <var name="sfx_transition_time" default="100" />
+    <var name="sfx_index" default="0" />
+
+    <!-- Simple mixer for sound effects only -->
+    <Mixer id="sfx-mixer" controls="waxml-dynamic-mixer" mix="$sfx_intensity" selectindex="$sfx_index" crossFadeRange="$sfx_blend" transitionTime="$sfx_transition_time" output="#master">       
+        <GainNode id="ui" />
+        <GainNode id="game" />
+        <GainNode id="events" />
+    </Mixer>
+
+    <!-- Master output -->
+    <GainNode id="master" gain="0.8"/>
+
+</Audio>

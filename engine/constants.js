@@ -17,7 +17,7 @@ export const VISUAL = {
 
 // Game timing
 export const TIMING = {
-  GAME_START_BUFFER_TIME: 3000, // 3 seconds buffer before notes start spawning
+  GAME_START_BUFFER_TIME: 500, // 0.5 seconds buffer before notes start spawning
   RAPID_NOTE_DELAY: 100, // 100ms between rapid notes
   BEAT_INDICATOR_DURATION: 100, // Visual beat indicator duration
 };
@@ -40,36 +40,21 @@ export const KEY_POSITIONS = {
   G: VISUAL.TOTAL_WIDTH / 2 - VISUAL.LANE_WIDTH / 2,
 };
 
-// Available songs
-export const SONGS = [
-  { name: "tarzan.mp3", bpm: 130, displayName: "Tarzan" },
-  { name: "if-you.mp3", bpm: 115, displayName: "If You" },
-];
-
 // Difficulty settings
 export const DIFFICULTY_SETTINGS = {
   easy: {
-    scrollSpeed: 0.05,
-    noteSpawnChance: 0.1,
-    notesPerBeat: 1,
-    chordChance: 0.0,
-    rapidChance: 0.0,
-    beatSpawnChance: 0.4,
+    scrollSpeed: 5,
+    noteSpawnChance: 1,
+    notesPerBeat: 0.5,
   },
   medium: {
-    scrollSpeed: 0.08,
-    noteSpawnChance: 0.15,
-    notesPerBeat: 2,
-    chordChance: 0.1,
-    rapidChance: 0.05,
-    beatSpawnChance: 0.6,
+    scrollSpeed: 8,
+    noteSpawnChance: 1.5,
+    notesPerBeat: 1,
   },
   hard: {
-    scrollSpeed: 0.12,
-    noteSpawnChance: 0.2,
-    notesPerBeat: 3,
-    chordChance: 0.2,
-    rapidChance: 0.1,
-    beatSpawnChance: 0.8,
+    scrollSpeed: 10,
+    noteSpawnChance: 3,
+    notesPerBeat: 2,
   },
 };

@@ -1,309 +1,172 @@
-// gameManager.js
-// Main game logic and coordination
+// gameManager.js - Exactly like taptaptap gameEngine (ES6 compatible)
 
-import { gameState } from "./gameState.js";
-import { DIFFICULTY_SETTINGS, TIMING } from "./constants.js";
-import { audioManager } from "./audio.js";
-import { noteManager } from "./notes.js";
-import { uiManager } from "./ui.js";
-import { sceneManager } from "./scene.js";
-import { soundEffectsManager } from "./soundEffects.js";
+// Import audio functions
+import {
+  startMusic,
+  stopMusic,
+  pauseMusic,
+  resumeMusic,
+  playCombo,
+  playStreakBreak,
+  playSongEnd,
+  playGamePause,
+  playGameResume,
+  playSongComplete,
+} from "./audioManager.js";
+import { DIFFICULTY_SETTINGS } from "./constants.js";
+import { notesEngine } from "./notes.js";
+import { parseMusicXML } from "./audioManager.js";
 
-class GameManager {
-  constructor() {
-    this.comboCount = 0;
-    this.maxCombo = 0;
-    this.perfectHits = 0;
-    this.setupEventListeners();
-  }
+// Game Engine Object (ES6 compatible)
+var gameEngine = {
+  // Current game settings
+  levelNum: 1,
+  score: 0,
+  comboCount: 0,
+  maxCombo: 0,
+  perfectHits: 0,
+  isPlaying: false,
+  selectedSong: null, // Will be set from XML
+  selectedDifficulty: "medium", // Default difficulty
+  songs: [], // Will be populated from XML
 
-  // Initialize game manager
-  init() {
-    // Game manager is already initialized in constructor
-    // This method exists for consistency with other managers
-    console.log("GameManager initialized");
-  }
+  updateScore: function (amount) {
+    gameEngine.score = amount;
+    document.getElementById("score").innerHTML = "Score: " + gameEngine.score;
+  },
 
-  // Get current scroll speed
-  get scrollSpeed() {
-    return DIFFICULTY_SETTINGS[gameState.difficulty].scrollSpeed;
-  }
+  updateLevel: function (levelNum) {
+    gameEngine.levelNum = levelNum;
+  },
 
-  // Setup event listeners
-  setupEventListeners() {
-    document.addEventListener("startGame", () => this.startGame());
-    document.addEventListener("pauseGame", () => this.pauseGame());
-    document.addEventListener("resumeGame", () => this.resumeGame());
-    document.addEventListener("restartGame", () => this.restartGame());
-    document.addEventListener("playAgain", () => this.playAgain());
-    document.addEventListener("showSongSelection", () =>
-      this.showSongSelection()
-    );
-    document.addEventListener("changeDifficulty", (e) =>
-      this.changeDifficulty(e.detail.difficulty)
-    );
-    document.addEventListener("songSelected", (e) =>
-      this.selectSong(e.detail.song)
-    );
-    document.addEventListener("endGameSongSelected", (e) =>
-      this.selectSong(e.detail.song)
-    );
-    document.addEventListener("keyDown", (e) =>
-      this.handleKeyDown(e.detail.key)
-    );
-    document.addEventListener("keyUp", (e) => this.handleKeyUp(e.detail.key));
-    document.addEventListener("volumeChange", (e) =>
-      this.changeVolume(e.detail.volume)
-    );
-  }
+  reset: function () {
+    gameEngine.score = 0;
+    gameEngine.comboCount = 0;
+    gameEngine.maxCombo = 0;
+    gameEngine.perfectHits = 0;
+    gameEngine.isPlaying = false;
+    gameEngine.updateScore(0);
+  },
 
-  // Game control methods
-  async startGame() {
-    if (!audioManager.isMusicLoaded) {
-      alert(
-        "Music is not available. Please check that the audio file exists and refresh the page."
-      );
-      return;
-    }
+  selectSong: function (song) {
+    gameEngine.selectedSong = song;
+  },
 
-    gameState.reset();
-    gameState.start();
+  selectDifficulty: function (difficulty) {
+    gameEngine.selectedDifficulty = difficulty;
+  },
 
-    // Reset combo tracking
-    this.comboCount = 0;
-    this.maxCombo = 0;
-    this.perfectHits = 0;
+  getCurrentDifficultySettings: function () {
+    return DIFFICULTY_SETTINGS[gameEngine.selectedDifficulty];
+  },
 
-    noteManager.clearAllNotes();
-    uiManager.updateScore();
-
-    audioManager.restartBackgroundMusic();
-    uiManager.hidePauseMenu();
-
-    this.updateScrollSpeed();
-    uiManager.updateStartButton("Game Running", true);
-
-    // Play song start sound effect
-    soundEffectsManager.playSongStart();
-  }
-
-  pauseGame() {
-    gameState.pause();
-    audioManager.pauseBackgroundMusic();
-    soundEffectsManager.playGamePause();
-    uiManager.showPauseMenu();
-  }
-
-  resumeGame() {
-    uiManager.hidePauseMenu();
-    gameState.start();
-    audioManager.resumeBackgroundMusic();
-    soundEffectsManager.playGameResume();
-    uiManager.updateStartButton("Game Running", true);
-  }
-
-  restartGame() {
-    uiManager.hidePauseMenu();
-    gameState.reset();
-    gameState.start();
-
-    // Reset combo tracking
-    this.comboCount = 0;
-    this.maxCombo = 0;
-    this.perfectHits = 0;
-
-    noteManager.clearAllNotes();
-    uiManager.updateScore();
-
-    audioManager.restartBackgroundMusic();
-    this.updateScrollSpeed();
-    uiManager.updateStartButton("Game Running", true);
-
-    // Play song start sound effect
-    soundEffectsManager.playSongStart();
-  }
-
-  playAgain() {
-    uiManager.hideEndGameScreen();
-    this.restartGame();
-  }
-
-  showSongSelection() {
-    uiManager.hideEndGameScreen();
-    uiManager.showPauseMenu();
-    // Reset game state when selecting new song
-    gameState.reset();
-    uiManager.updateStartButton("Start", false);
-  }
-
-  // Song and difficulty management
-  async selectSong(song) {
-    const success = await audioManager.loadBackgroundMusic(song);
-    soundEffectsManager.playButtonClick();
-    if (success) {
-      uiManager.updateStartButton("Start", false);
-      // Don't hide the menu - let user press Start to begin
-    } else {
-      uiManager.updateStartButton("Music Unavailable", true);
-    }
-  }
-
-  changeDifficulty(difficulty) {
-    gameState.setDifficulty(difficulty);
-    this.updateScrollSpeed();
-    soundEffectsManager.playDifficultyChange();
-    uiManager.updateDifficultyButtons(difficulty);
-    console.log(
-      `Difficulty set to: ${difficulty} (Speed: ${this.scrollSpeed})`
-    );
-  }
-
-  changeVolume(volume) {
-    audioManager.setVolume(volume);
-  }
-
-  // Game logic
-  updateScrollSpeed() {
-    // Scroll speed is now calculated dynamically via getter
-  }
-
-  detectBeatsAndSpawnNotes() {
-    if (!audioManager.isMusicLoaded || !audioManager.isMusicPlaying) {
-      return;
-    }
-
-    // Check buffer time
-    if (!gameState.isBufferTimePassed(TIMING.GAME_START_BUFFER_TIME)) {
-      return;
-    }
-
-    const isBeat = audioManager.detectBeat();
-    if (isBeat) {
-      const settings = DIFFICULTY_SETTINGS[gameState.difficulty];
-      if (Math.random() < settings.beatSpawnChance) {
-        this.spawnNotesOnBeat();
+  initializeSongs: async function () {
+    try {
+      gameEngine.songs = await parseMusicXML();
+      if (gameEngine.songs.length > 0) {
+        gameEngine.selectedSong = gameEngine.songs[0]; // Set first song as default
       }
-      uiManager.showBeatIndicator();
+    } catch (error) {
+      console.warn("Failed to initialize songs from XML:", error);
+      gameEngine.songs = [];
     }
+  },
 
-    // Random note spawning
-    const settings = DIFFICULTY_SETTINGS[gameState.difficulty];
-    const randomSpawnRate = settings.noteSpawnChance * 0.01;
-    if (Math.random() < randomSpawnRate) {
-      this.spawnRandomNote();
-    }
-  }
+  start: function () {
+    try {
+      gameEngine.reset();
+      gameEngine.isPlaying = true;
 
-  spawnNotesOnBeat() {
-    const settings = DIFFICULTY_SETTINGS[gameState.difficulty];
-    const pattern = this.determineNotePattern(settings);
+      // Clear notes
+      notesEngine.clearAll();
 
-    pattern.forEach((noteType) => {
-      if (noteType === "single") {
-        const randomKey = this.getRandomKey();
-        const isLongNote = Math.random() < 0.15;
-        noteManager.createNote(randomKey, isLongNote);
-      } else if (noteType === "chord") {
-        this.spawnChord();
-      } else if (noteType === "rapid") {
-        this.spawnRapidSequence();
+      // Start music
+      startMusic();
+
+      // Update UI
+      document.getElementById("startBtn").innerHTML = "Game Running";
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("pauseBtn").disabled = false;
+      document.getElementById("pauseBtn").innerHTML = "Pause";
+
+      // Hide pause menu
+      var pauseMenu = document.getElementById("pauseMenu");
+      if (pauseMenu) {
+        pauseMenu.classList.remove("show");
       }
-    });
-  }
-
-  spawnRandomNote() {
-    const settings = DIFFICULTY_SETTINGS[gameState.difficulty];
-    if (Math.random() < settings.noteSpawnChance) {
-      const randomKey = this.getRandomKey();
-      const isLongNote = Math.random() < 0.1;
-      noteManager.createNote(randomKey, isLongNote);
+    } catch (error) {
+      console.error("Error in gameEngine.start():", error);
     }
-  }
+  },
 
-  spawnChord() {
-    const keys = Object.keys(noteManager.keyPositions);
-    const chordKeys = [];
-    const numChordNotes = Math.min(
-      2 + Math.floor(Math.random() * 2),
-      keys.length
-    );
+  pause: function () {
+    gameEngine.isPlaying = false;
+    playGamePause();
+    pauseMusic();
 
-    while (chordKeys.length < numChordNotes) {
-      const randomKey = keys[Math.floor(Math.random() * keys.length)];
-      if (!chordKeys.includes(randomKey)) {
-        chordKeys.push(randomKey);
-      }
+    // Show pause menu
+    var pauseMenu = document.getElementById("pauseMenu");
+    if (pauseMenu) {
+      pauseMenu.classList.add("show");
     }
+  },
 
-    chordKeys.forEach((key) => noteManager.createNote(key, false));
-  }
+  resume: function () {
+    gameEngine.isPlaying = true;
+    playGameResume();
+    resumeMusic();
 
-  spawnRapidSequence() {
-    const rapidKey = this.getRandomKey();
-    const rapidCount = 2 + Math.floor(Math.random() * 2);
-
-    for (let i = 0; i < rapidCount; i++) {
-      setTimeout(
-        () => noteManager.createNote(rapidKey, false),
-        i * TIMING.RAPID_NOTE_DELAY
-      );
+    // Hide pause menu
+    var pauseMenu = document.getElementById("pauseMenu");
+    if (pauseMenu) {
+      pauseMenu.classList.remove("show");
     }
-  }
+  },
 
-  determineNotePattern(settings) {
-    const patterns = ["single"];
+  stop: function () {
+    gameEngine.isPlaying = false;
+    playSongEnd();
+    stopMusic();
 
-    if (Math.random() < settings.chordChance) {
-      patterns.push("chord");
+    // Reset UI
+    document.getElementById("startBtn").innerHTML = "Start";
+    document.getElementById("startBtn").disabled = false;
+    document.getElementById("pauseBtn").disabled = true;
+    document.getElementById("pauseBtn").innerHTML = "Menu";
+
+    // Show pause menu
+    var pauseMenu = document.getElementById("pauseMenu");
+    if (pauseMenu) {
+      pauseMenu.classList.add("show");
     }
+  },
 
-    if (Math.random() < settings.rapidChance) {
-      patterns.push("rapid");
+  goodNoteHit: function () {
+    gameEngine.comboCount++;
+    if (gameEngine.comboCount > gameEngine.maxCombo) {
+      gameEngine.maxCombo = gameEngine.comboCount;
     }
+    gameEngine.perfectHits++;
+    gameEngine.updateScore(gameEngine.score + 100);
 
-    return patterns.slice(0, settings.notesPerBeat);
-  }
-
-  getRandomKey() {
-    const keys = Object.keys(noteManager.keyPositions);
-    return keys[Math.floor(Math.random() * keys.length)];
-  }
-
-  // Input handling
-  handleKeyDown(key) {
-    if (noteManager.noteColors.hasOwnProperty(key)) {
-      gameState.activeKeys[key] = true;
-      sceneManager.updateHitMarker(key, true);
-      noteManager.handleKeyPress(key);
+    // Play combo sound for good hits
+    if (gameEngine.comboCount > 1) {
+      playCombo(gameEngine.comboCount);
     }
-  }
+  },
 
-  handleKeyUp(key) {
-    if (noteManager.noteColors.hasOwnProperty(key)) {
-      gameState.activeKeys[key] = false;
-      sceneManager.updateHitMarker(key, false);
+  badNoteHit: function () {
+    gameEngine.comboCount = 0;
+    gameEngine.updateScore(gameEngine.score + 50);
+  },
+
+  missNote: function () {
+    if (gameEngine.comboCount > 0) {
+      playStreakBreak();
     }
-  }
+    gameEngine.comboCount = 0;
+  },
+};
 
-  // Game loop
-  update() {
-    if (gameState.isPlaying) {
-      noteManager.updateNotes(this.scrollSpeed);
-      this.detectBeatsAndSpawnNotes();
-      noteManager.handleLongNotes();
-      this.checkSongEnd();
-    }
-  }
-
-  checkSongEnd() {
-    if (audioManager.backgroundMusic && audioManager.backgroundMusic.ended) {
-      console.log("Song has ended, showing end screen");
-      soundEffectsManager.playSongEnd();
-      gameState.pause();
-      uiManager.showEndGameScreen();
-    }
-  }
-}
-
-// Export singleton instance
-export const gameManager = new GameManager();
+// Export for use in other modules
+export { gameEngine };

@@ -15,9 +15,8 @@
       <div id="info">GuitarHeroJS</div>
       <div id="score">Score: 0</div>
       <div id="buttons">
-        <button id="startBtn" disabled>Loading Music...</button>
+        <button id="startBtn">Start</button>
         <button id="pauseBtn">Pause</button>
-        <button id="debugBtn">Debug</button>
       </div>
 
       <!-- Pause Menu -->
@@ -91,6 +90,13 @@
         <div id="beatIndicator">🎵</div>
       </div>
     </div>
-    <script type="module" src="./engine/main.js"></script>
+
+    <!-- WebAudioXML Library -->
+    <script src="/WebAudioXML.js" data-source="audio.xml"></script>
+
+    <!-- iMusic Plugin for advanced music management -->
+    <script src="/imusic_091.js" data-music-structure="music.xml"></script>
+
+    <script type="module" src="/engine/main.js"></script>
   </body>
 </html>
